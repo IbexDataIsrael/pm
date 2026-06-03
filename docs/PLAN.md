@@ -114,25 +114,25 @@ Goal: design the SQLite persistence model before implementing backend storage.
 
 Checklist:
 
-- Propose a SQLite schema that supports multiple users in the future.
-- Support one board per signed-in user for the MVP.
-- Store the Kanban board as JSON, including columns, cards, card ordering, and column names.
-- Define the initial default board JSON for a new user.
-- Document how the database file is created when missing.
-- Document how schema initialization or migration is handled for the MVP.
-- Save the database design in `docs/`.
-- Get user sign-off before backend database implementation.
+- [x] Propose a SQLite schema that supports multiple users in the future.
+- [x] Support one board per signed-in user for the MVP.
+- [x] Store the Kanban board as JSON, including columns, cards, card ordering, and column names.
+- [x] Define the initial default board JSON for a new user.
+- [x] Document how the database file is created when missing.
+- [x] Document how schema initialization or migration is handled for the MVP.
+- [x] Save the database design in `docs/`.
+- [x] Get user sign-off before backend database implementation.
 
 Tests:
 
-- No implementation tests required before approval.
-- Review the proposed schema against the MVP requirements.
+- [x] No implementation tests required before approval.
+- [x] Review the proposed schema against the MVP requirements.
 
 Success criteria:
 
-- A database design document exists in `docs/`.
-- The design covers user records, board records, and JSON board persistence.
-- The user approves the database approach before implementation starts.
+- [x] A database design document exists in `docs/`.
+- [x] The design covers user records, board records, and JSON board persistence.
+- [x] The user approves the database approach before implementation starts.
 
 ## Part 6: Backend Persistence API
 
@@ -140,29 +140,29 @@ Goal: add backend routes that read and update a user's persisted Kanban board.
 
 Checklist:
 
-- Add SQLite setup that creates the database if it does not exist.
-- Add schema initialization for the approved database model.
-- Add backend data access functions for users and boards.
-- Add an API route to fetch the current user's Kanban board.
-- Add an API route to update the current user's Kanban board.
-- Seed or create the default board for the MVP user when needed.
-- Validate board JSON shape enough to protect the app from malformed requests.
-- Keep authentication simple and aligned with the fake login phase.
+- [x] Add SQLite setup that creates the database if it does not exist.
+- [x] Add schema initialization for the approved database model.
+- [x] Add backend data access functions for users and boards.
+- [x] Add an API route to fetch the current user's Kanban board.
+- [x] Add an API route to update the current user's Kanban board.
+- [x] Seed or create the default board for the MVP user when needed.
+- [x] Validate board JSON shape enough to protect the app from malformed requests.
+- [x] Keep authentication simple and aligned with the fake login phase.
 
 Tests:
 
-- Add unit tests for database initialization.
-- Add unit tests for creating or loading the default board.
-- Add API tests for fetching a board.
-- Add API tests for updating a board.
-- Add tests for malformed board update requests.
+- [x] Add unit tests for database initialization.
+- [x] Add unit tests for creating or loading the default board.
+- [x] Add API tests for fetching a board.
+- [x] Add API tests for updating a board.
+- [x] Add tests for malformed board update requests.
 
 Success criteria:
 
-- Backend creates the SQLite database automatically when missing.
-- The MVP user can fetch and update a board through API routes.
-- Board changes persist across backend restarts.
-- Backend tests pass.
+- [x] Backend creates the SQLite database automatically when missing.
+- [x] The MVP user can fetch and update a board through API routes.
+- [x] Board changes persist across backend restarts.
+- [x] Backend tests pass.
 
 ## Part 7: Frontend and Backend Integration
 
@@ -170,26 +170,26 @@ Goal: make the Kanban UI use the backend API so board state persists.
 
 Checklist:
 
-- Replace frontend-only board state initialization with an API fetch after login.
-- Save column rename, card edit, and drag-and-drop changes through the backend API.
-- Show a simple loading state while the board is fetched.
-- Show a simple error state if the board cannot be loaded or saved.
-- Keep UI interactions close to the existing demo behavior.
-- Avoid complex offline sync or optimistic conflict handling for the MVP.
+- [x] Replace frontend-only board state initialization with an API fetch after login.
+- [x] Save column rename, card edit, and drag-and-drop changes through the backend API.
+- [x] Show a simple loading state while the board is fetched.
+- [x] Show a simple error state if the board cannot be loaded or saved.
+- [x] Keep UI interactions close to the existing demo behavior.
+- [x] Avoid complex offline sync or optimistic conflict handling for the MVP.
 
 Tests:
 
-- Add frontend tests for loading board data from the API.
-- Add frontend tests for saving board changes.
-- Add integration or end-to-end tests covering login, board load, edit, and persistence.
-- Manually verify changes persist after refreshing the page and restarting the container.
+- [x] Add frontend tests for loading board data from the API.
+- [x] Add frontend tests for saving board changes.
+- [x] Add integration or end-to-end tests covering login, board load, edit, and persistence.
+- [x] Manually verify changes persist after refreshing the page and restarting the container.
 
 Success criteria:
 
-- The frontend reads board state from the backend.
-- Board changes are saved through the backend.
-- Refreshing the page preserves the latest board state.
-- Relevant frontend, backend, and integration tests pass.
+- [x] The frontend reads board state from the backend.
+- [x] Board changes are saved through the backend.
+- [x] Refreshing the page preserves the latest board state.
+- [x] Relevant frontend, backend, and integration tests pass.
 
 ## Part 8: AI Connectivity
 
