@@ -164,6 +164,12 @@ Success criteria:
 - [x] Board changes persist across backend restarts.
 - [x] Backend tests pass.
 
+Implementation notes:
+
+- The backend exposes `GET /api/board` and `PUT /api/board` for the hardcoded MVP user, returning and accepting `{ "board": ... }`.
+- Board persistence writes the complete board JSON to SQLite. Validation stays intentionally focused on the frontend `BoardData` shape, card references, and duplicate card placement.
+- Database initialization is idempotent: create the parent directory and schema, ensure the MVP user, and seed the default board only when missing.
+
 ## Part 7: Frontend and Backend Integration
 
 Goal: make the Kanban UI use the backend API so board state persists.
@@ -190,6 +196,12 @@ Success criteria:
 - [x] Board changes are saved through the backend.
 - [x] Refreshing the page preserves the latest board state.
 - [x] Relevant frontend, backend, and integration tests pass.
+
+Implementation notes:
+
+- After login, the frontend fetches the persisted board before rendering the Kanban UI.
+- Board changes update local UI state immediately and then save the whole board with `PUT /api/board`.
+- Loading, load failure, saving, and save failure states are intentionally simple; the MVP does not include offline sync, retries, or conflict handling.
 
 ## Part 8: AI Connectivity
 
