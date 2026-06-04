@@ -209,25 +209,32 @@ Goal: prove the backend can call OpenRouter using the configured model.
 
 Checklist:
 
-- Read `OPENROUTER_API_KEY` from the project root `.env`.
-- Configure the backend to call OpenRouter using model `openai/gpt-oss-120b`.
-- Add a minimal backend service function for AI calls.
-- Add a simple API route or test-only path to verify AI connectivity.
-- Test with a simple prompt such as `2+2`.
-- Avoid exposing the API key to the frontend.
+- [x] Read `OPENROUTER_API_KEY` from the project root `.env`.
+- [x] Configure the backend to call OpenRouter using model `openai/gpt-oss-120b`.
+- [x] Add a minimal backend service function for AI calls.
+- [x] Add a simple API route or test-only path to verify AI connectivity.
+- [ ] Test with a simple prompt such as `2+2`.
+- [x] Avoid exposing the API key to the frontend.
 
 Tests:
 
-- Add unit tests around AI request construction with network calls mocked.
-- Add an integration test or manual verification path for a real OpenRouter call when the API key is available.
-- Verify missing API key behavior fails clearly.
+- [x] Add unit tests around AI request construction with network calls mocked.
+- [x] Add an integration test or manual verification path for a real OpenRouter call when the API key is available.
+- [x] Verify missing API key behavior fails clearly.
 
 Success criteria:
 
-- Backend can make a successful OpenRouter call locally.
-- The simple connectivity prompt returns a sensible response.
-- API key remains server-side only.
-- Tests pass, with real network-dependent tests clearly separated if needed.
+- [ ] Backend can make a successful OpenRouter call locally.
+- [ ] The simple connectivity prompt returns a sensible response.
+- [x] API key remains server-side only.
+- [ ] Tests pass, with real network-dependent tests clearly separated if needed.
+
+Implementation notes:
+
+- The backend exposes `POST /api/ai/test` with an optional `{ "prompt": "..." }` body. If omitted, the prompt defaults to `2+2`.
+- `app/ai.py` reads `OPENROUTER_API_KEY` from the process environment first, then from the project root `.env` for local development.
+- AI calls use OpenRouter's chat completions API with model `openai/gpt-oss-120b`; the frontend never receives or reads the API key.
+- Tests mock OpenRouter by default. The real connectivity test is skipped unless `OPENROUTER_API_KEY` is configured.
 
 ## Part 9: AI Structured Kanban Updates
 
@@ -235,30 +242,37 @@ Goal: have the backend send the board, user message, and conversation history to
 
 Checklist:
 
-- Define the structured AI response schema, including user-facing text and an optional board update.
-- Include the current Kanban board JSON in the AI prompt.
-- Include the user's latest message in the AI prompt.
-- Include conversation history in the AI prompt.
-- Add backend logic to validate the structured AI response.
-- Apply the board update only if the response includes a valid updated board.
-- Persist valid AI-generated board changes to SQLite.
-- Return both the assistant message and whether the board changed to the frontend.
-- Keep prompts small and explicit enough for the MVP.
+- [x] Define the structured AI response schema, including user-facing text and an optional board update.
+- [x] Include the current Kanban board JSON in the AI prompt.
+- [x] Include the user's latest message in the AI prompt.
+- [x] Include conversation history in the AI prompt.
+- [x] Add backend logic to validate the structured AI response.
+- [x] Apply the board update only if the response includes a valid updated board.
+- [x] Persist valid AI-generated board changes to SQLite.
+- [x] Return both the assistant message and whether the board changed to the frontend.
+- [x] Keep prompts small and explicit enough for the MVP.
 
 Tests:
 
-- Add unit tests for structured response parsing.
-- Add unit tests for rejecting invalid board updates.
-- Add backend API tests with mocked AI responses that update the board.
-- Add backend API tests with mocked AI responses that only reply in chat.
-- Add persistence tests proving AI board updates are saved.
+- [x] Add unit tests for structured response parsing.
+- [x] Add unit tests for rejecting invalid board updates.
+- [x] Add backend API tests with mocked AI responses that update the board.
+- [x] Add backend API tests with mocked AI responses that only reply in chat.
+- [x] Add persistence tests proving AI board updates are saved.
 
 Success criteria:
 
-- AI chat endpoint can return a text response without changing the board.
-- AI chat endpoint can return a valid board update and persist it.
-- Invalid AI board updates are rejected safely.
-- Tests pass.
+- [x] AI chat endpoint can return a text response without changing the board.
+- [x] AI chat endpoint can return a valid board update and persist it.
+- [x] Invalid AI board updates are rejected safely.
+- [ ] Tests pass.
+
+Implementation notes:
+
+- The backend exposes `POST /api/ai/chat` with `{ "message": "...", "history": [...] }`.
+- The AI prompt includes the current board JSON, the latest user message, and up to 10 valid user/assistant history messages.
+- The expected AI response is JSON: `{ "message": "...", "board": null }` for chat-only replies, or the same shape with a complete updated board object.
+- Board updates are validated with the existing board validator before being persisted. Invalid AI responses return an upstream-style error and are not saved.
 
 ## Part 10: AI Chat Sidebar UI
 
@@ -266,30 +280,37 @@ Goal: add a polished sidebar chat experience that can ask the backend AI endpoin
 
 Checklist:
 
-- Add a sidebar chat widget to the Kanban UI.
-- Display conversation history in the sidebar.
-- Let the user send a message to the backend AI endpoint.
-- Show loading state while waiting for the AI response.
-- Show the assistant response in the chat history.
-- Refresh the Kanban board automatically when the AI updates it.
-- Preserve existing Kanban interactions alongside the chat.
-- Keep the UI consistent with the project color scheme.
-- Avoid extra AI features beyond chat-driven board updates for the MVP.
+- [x] Add a sidebar chat widget to the Kanban UI.
+- [x] Display conversation history in the sidebar.
+- [x] Let the user send a message to the backend AI endpoint.
+- [x] Show loading state while waiting for the AI response.
+- [x] Show the assistant response in the chat history.
+- [x] Refresh the Kanban board automatically when the AI updates it.
+- [x] Preserve existing Kanban interactions alongside the chat.
+- [x] Keep the UI consistent with the project color scheme.
+- [x] Avoid extra AI features beyond chat-driven board updates for the MVP.
 
 Tests:
 
-- Add frontend tests for opening and using the chat sidebar.
-- Add frontend tests for sending a message and rendering the assistant response.
-- Add frontend tests for refreshing the board after an AI update.
-- Add end-to-end tests covering login, chat request, AI response, and board refresh with mocked AI where appropriate.
+- [x] Add frontend tests for opening and using the chat sidebar.
+- [x] Add frontend tests for sending a message and rendering the assistant response.
+- [x] Add frontend tests for refreshing the board after an AI update.
+- [ ] Add end-to-end tests covering login, chat request, AI response, and board refresh with mocked AI where appropriate.
 
 Success criteria:
 
-- The chat sidebar is usable from the Kanban page.
-- User messages and assistant responses appear in order.
-- AI-generated board updates refresh the visible board automatically.
-- Existing Kanban edit and drag-and-drop behavior still works.
-- Relevant tests pass.
+- [x] The chat sidebar is usable from the Kanban page.
+- [x] User messages and assistant responses appear in order.
+- [x] AI-generated board updates refresh the visible board automatically.
+- [x] Existing Kanban edit and drag-and-drop behavior still works.
+- [x] Relevant tests pass.
+
+Implementation notes:
+
+- `AiChatSidebar` renders on the Kanban page and calls `POST /api/ai/chat` through `sendAiChatMessage`.
+- The sidebar keeps local conversation history for the current page session.
+- When the backend returns `boardChanged: true`, the authenticated app refreshes the board from `GET /api/board`.
+- The MVP keeps chat state simple: no persistence, retry queue, or offline handling.
 
 ## Overall Definition of Done
 

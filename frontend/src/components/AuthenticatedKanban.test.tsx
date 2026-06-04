@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AuthenticatedKanban } from "@/components/AuthenticatedKanban";
 import { initialData, type BoardData } from "@/lib/kanban";
@@ -9,14 +9,41 @@ const jsonResponse = (body: unknown) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const mockBoardApi = (board: BoardData = initialData) => {
+type MockBoardApiOptions = {
+  board?: BoardData;
+  aiResponse?: {
+    message: string;
+    boardChanged: boolean;
+  };
+  refreshedBoard?: BoardData;
+};
+
+const cloneBoard = (board: BoardData): BoardData => JSON.parse(JSON.stringify(board));
+
+const mockBoardApi = ({
+  board = initialData,
+  aiResponse,
+  refreshedBoard,
+}: MockBoardApiOptions = {}) => {
+  let currentBoard = board;
   const fetchMock = vi.fn((url: RequestInfo | URL, options?: RequestInit) => {
     if (url === "/api/board" && options?.method === "PUT") {
-      return Promise.resolve(jsonResponse(JSON.parse(options.body as string)));
+      const body = JSON.parse(options.body as string) as { board: BoardData };
+      currentBoard = body.board;
+      return Promise.resolve(jsonResponse(body));
     }
 
     if (url === "/api/board") {
-      return Promise.resolve(jsonResponse({ board }));
+      return Promise.resolve(jsonResponse({ board: currentBoard }));
+    }
+
+    if (url === "/api/ai/chat") {
+      if (aiResponse?.boardChanged && refreshedBoard) {
+        currentBoard = refreshedBoard;
+      }
+      return Promise.resolve(
+        jsonResponse(aiResponse ?? { message: "AI reply", boardChanged: false })
+      );
     }
 
     return Promise.reject(new Error(`Unexpected request: ${String(url)}`));
@@ -104,5 +131,54 @@ describe("AuthenticatedKanban", () => {
       })
     );
     expect(firstColumn).toBeVisible();
+  });
+
+  it("sends chat messages and shows the assistant response", async () => {
+    const fetchMock = mockBoardApi({
+      aiResponse: { message: "I can help with that.", boardChanged: false },
+    });
+    render(<AuthenticatedKanban />);
+
+    await screen.findByRole("heading", { name: /sign in/i });
+    await signIn();
+    await screen.findByRole("heading", { name: /board chat/i });
+
+    await userEvent.type(
+      screen.getByLabelText(/message/i),
+      "What should I work on next?"
+    );
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("I can help with that.")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/ai/chat",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("What should I work on next?"),
+      })
+    );
+  });
+
+  it("refreshes the board when AI changes it", async () => {
+    const refreshedBoard = cloneBoard(initialData);
+    refreshedBoard.columns[0].title = "AI Ideas";
+    const fetchMock = mockBoardApi({
+      aiResponse: { message: "Renamed the first column.", boardChanged: true },
+      refreshedBoard,
+    });
+    render(<AuthenticatedKanban />);
+
+    await screen.findByRole("heading", { name: /sign in/i });
+    await signIn();
+    await screen.findByRole("heading", { name: /board chat/i });
+
+    await userEvent.type(screen.getByLabelText(/message/i), "Rename backlog");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("Renamed the first column.")).toBeVisible();
+    expect(await screen.findByDisplayValue("AI Ideas")).toBeVisible();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/board");
+    });
   });
 });

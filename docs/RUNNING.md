@@ -50,6 +50,7 @@ After starting the container:
 
 - Open `http://localhost:8000/` to see the Kanban board.
 - Open `http://localhost:8000/api/health` to confirm the API returns `{"status":"ok"}`.
+- AI chat requires `OPENROUTER_API_KEY` in the project root `.env`. The start scripts pass that file to Docker at runtime.
 
 Backend tests can be run from `backend/` with:
 

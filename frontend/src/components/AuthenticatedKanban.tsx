@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { LoginForm } from "@/components/LoginForm";
 import { fetchBoard, saveBoard } from "@/lib/boardApi";
@@ -20,6 +20,27 @@ export const AuthenticatedKanban = () => {
   );
   const [loadError, setLoadError] = useState("");
 
+  const loadBoard = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setIsLoadingBoard(true);
+      setLoadError("");
+    }
+
+    try {
+      const nextBoard = await fetchBoard();
+      setBoard(nextBoard);
+    } catch {
+      if (showLoading) {
+        setLoadError("Unable to load board.");
+      }
+      throw new Error("Unable to load board.");
+    } finally {
+      if (showLoading) {
+        setIsLoadingBoard(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     setIsSignedIn(window.localStorage.getItem(SESSION_KEY) === USERNAME);
     setHasLoadedSession(true);
@@ -33,31 +54,8 @@ export const AuthenticatedKanban = () => {
       return;
     }
 
-    let isCurrent = true;
-    setIsLoadingBoard(true);
-    setLoadError("");
-
-    fetchBoard()
-      .then((nextBoard) => {
-        if (isCurrent) {
-          setBoard(nextBoard);
-        }
-      })
-      .catch(() => {
-        if (isCurrent) {
-          setLoadError("Unable to load board.");
-        }
-      })
-      .finally(() => {
-        if (isCurrent) {
-          setIsLoadingBoard(false);
-        }
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [isSignedIn]);
+    loadBoard().catch(() => undefined);
+  }, [isSignedIn, loadBoard]);
 
   const handleLogin = (username: string, password: string) => {
     if (username !== USERNAME || password !== PASSWORD) {
@@ -130,6 +128,7 @@ export const AuthenticatedKanban = () => {
   return (
     <KanbanBoard
       board={board}
+      onAiBoardChange={() => loadBoard(false)}
       onBoardChange={handleBoardChange}
       onLogout={handleLogout}
       saveStatus={saveStatus}

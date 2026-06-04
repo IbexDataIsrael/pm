@@ -6,17 +6,18 @@ Structure:
 - `src/app/page.tsx` renders the Kanban board at `/`.
 - `src/app/layout.tsx` defines app metadata, global fonts, and the root layout.
 - `src/app/globals.css` contains global styling and theme variables.
-- `src/components/` contains the board, column, card, preview, and new-card form components.
+- `src/components/` contains the authenticated app shell, board, AI chat sidebar, column, card, preview, and new-card form components.
 - `src/lib/kanban.ts` contains the initial board data and board helper functions.
+- `src/lib/boardApi.ts` contains frontend API calls for persisted board state and AI chat.
 - `src/test/` contains Vitest setup files.
 - `tests/` contains Playwright end-to-end tests.
 
 Current behavior:
-- The app is a frontend-only demo behind a dummy local login.
+- The app is a persisted Kanban MVP behind a dummy local login.
 - The MVP credentials are username `user` and password `password`.
-- Board state lives in React state.
+- Board state is loaded from and saved to the backend API.
 - Users can rename columns, add cards, delete cards, and drag cards between columns.
-- There is no backend API usage, persistence, or AI chat yet.
+- The AI chat sidebar sends user messages and conversation history to the backend, then refreshes the board when the backend reports an AI-generated board change.
 
 Commands:
 
