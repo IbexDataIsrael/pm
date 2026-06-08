@@ -1,250 +1,175 @@
-# Code Review
+Code Review Report
+==================
 
+Repository: Project Management MVP (pm)
 Date: 2026-06-08
-Scope: entire repository (backend, frontend, Docker, scripts, tests, docs)
-
-## Summary
 
-The codebase is clean, small, and well-aligned with the "keep it simple" standard in
-`AGENTS.md`. Structure matches the documented architecture, naming is consistent, and
-there is solid test coverage on the backend and on frontend board logic. The MVP is
-essentially functional.
-
-The most important gaps are: a missing card-editing feature that the product
-requirements explicitly call for, and a Docker run flow that silently discards the
-SQLite database every time the app is restarted. Both are described below with concrete
-actions.
-
-Overall assessment: good for an MVP. Address the High items before calling the MVP
-"done"; the Medium/Low items are cleanups.
-
----
-
-## Remediation status (2026-06-08)
-
-All Critical (none), High, and Medium items have been addressed. Low items remain open as
-optional cleanups.
-
-| ID | Item | Status |
-|----|------|--------|
-| H1 | Card editing missing | Fixed - inline edit added to `KanbanCard`, threaded through `KanbanColumn`/`KanbanBoard`, with a unit test |
-| H2 | DB lost on container recreate | Fixed - `backend/data` volume mounted in all three start scripts |
-| M1 | Redundant per-request DB init | Fixed - `initialize_database` now guarded to run once per DB path |
-| M2 | Static route could shadow API routes | Fixed - comment added in `main.py` |
-| M3 | Last-write-wins not documented | Fixed - "Known Limitations" added to `docs/RUNNING.md` |
-| M4 | PLAN checklist out of sync | Fixed - `docs/PLAN.md` reconciled |
-| L1-L7 | Low-priority cleanups | Open (optional) |
-
-Test results after remediation:
-- Backend: `uv run pytest` - 29 passed (includes the live OpenRouter connectivity test,
-  which ran and passed with the configured key).
-- Frontend: `npm test` (vitest) - 14 passed. `npm run lint` clean. `npm run build`
-  (Next production build + TypeScript check) succeeds.
-
-Note: a corrupted `backend/.venv` (broken `lib64` symlink, no Windows `Scripts/`) blocked
-`uv run` and was removed and recreated with `uv sync`. Separately, the frontend test
-suite was failing under Node 26 because its native experimental `localStorage` global
-shadows jsdom's; a guarded in-memory polyfill was added in `src/test/setup.ts`. Both were
-environment issues, not defects in the reviewed code.
-
----
-
-## High priority
-
-### H1. Card editing is required but not implemented
-
-`AGENTS.md` states: "The cards on the Kanban board can be moved with drag and drop, and
-edited." `docs/PLAN.md` Part 7 also lists saving "card edit" changes. The UI supports
-column rename, add card, delete card, and drag, but there is **no way to edit an
-existing card's title or details**.
-
-Evidence:
-- `frontend/src/components/KanbanCard.tsx:34-40` renders `card.title` and `card.details`
-  as static text only.
-- `frontend/src/components/KanbanBoard.tsx` has handlers for rename, add, delete, and
-  drag, but none for editing a card.
-- A repo-wide search for "edit" in `frontend/src` returns only the AI sidebar's
-  placeholder copy.
-
-Note: the AI sidebar can edit cards via chat, and `CLAUDE.md` describes
-`KanbanBoard.tsx` as having "inline card editing" — that description is inaccurate for
-direct UI editing.
-
-Action: add inline editing of card title/details (mirroring the existing column-rename
-input pattern), wire an `onEditCard` handler through `KanbanBoard` ->
-`KanbanColumn` -> `KanbanCard`, and persist via the existing `onBoardChange` flow. Add a
-unit test alongside the existing add/remove test in `KanbanBoard.test.tsx`.
-
-### H2. SQLite data is lost on every container recreate
-
-The start scripts run the container without a volume mount, and `start-windows.ps1`
-does `docker rm -f` followed by `docker run` on every invocation. The database lives
-inside the container at `/app/backend/data/pm.sqlite3`, so each start produces a fresh
-container and resets the board to the default.
-
-Evidence:
-- `scripts/start-windows.ps1:17-25` removes the existing container and runs a new one
-  with no `-v` flag.
-- `backend/data/` is excluded by both `.gitignore:132` and `.dockerignore`.
-- `docs/PLAN.md:164` / `:191` claim "Board changes persist across backend restarts" and
-  ask to "verify changes persist after ... restarting the container."
-
-This contradicts the stated success criteria. `docker restart` would preserve data, but
-the provided scripts do a full recreate.
-
-Action: mount a host volume for the database, e.g. add
-`-v "${PWD}/backend/data:/app/backend/data"` (and the equivalent in the macOS/Linux
-scripts), or document explicitly that data is intentionally ephemeral. Recommend the
-volume mount so the persistence claims in the docs hold.
-
----
-
-## Medium priority
-
-### M1. `get_board` / `update_board` re-initialize the database on every call
-
-`database.py:128` and `database.py:146` call `initialize_database()` on every read and
-write, in addition to the app lifespan hook (`main.py:24`) that already initializes on
-startup. This runs `executescript` (CREATE TABLE IF NOT EXISTS, index creation, user and
-board seeding) on every request.
-
-It is correct but wasteful and adds redundant DB work per request. Since the lifespan
-hook already initializes, the per-call initialization is defensive overhead the coding
-standard ("no unnecessary defensive programming") discourages.
-
-Action: rely on the lifespan initialization and remove the `initialize_database()` calls
-from `get_board` and `update_board`. Keep one of them only if the standalone data-access
-functions need to work without the app lifespan (e.g. in tests) — the tests currently
-call `initialize_database()` themselves where needed, so removal is safe.
-
-### M2. Static file route can shadow API routes / has no caching headers
-
-`main.py:99` defines a catch-all `GET /{static_path:path}`. Route ordering currently
-saves it (API routes are declared first), and the `is_relative_to` check guards against
-path traversal, which is good. Two observations:
-
-- Any future API route added *below* this handler would be silently shadowed. Consider a
-  comment noting that all API routes must be declared before the catch-all.
-- Static assets are served with default headers (no cache-control). For an MVP this is
-  fine; note it if performance ever matters.
-
-Action: add a short comment above the catch-all route documenting the ordering
-requirement. Caching is optional for the MVP.
-
-### M3. Board update is not atomic with respect to concurrent writers
-
-The frontend saves the entire board on every change (`AuthenticatedKanban.tsx:79`), and
-the AI path also writes the whole board (`ai_chat.py:35`). If a manual edit and an AI
-edit overlap, last-write-wins silently overwrites the other. `docs/PLAN.md` explicitly
-scopes out conflict handling for the MVP, so this is acceptable — but worth recording as
-a known limitation.
-
-Action: no code change required. Note the limitation in the docs (it is partially noted
-in PLAN Part 7 already).
-
-### M4. PLAN checklist has unchecked items presented as done
-
-`docs/PLAN.md` leaves several boxes unchecked (e.g. lines 216, 227-230, 268, 298) for
-real-network AI verification and some E2E tests, while the "Overall Definition of Done"
-implies completion. This makes it hard to know true status.
-
-Action: reconcile the checklist with reality — either complete and check the items
-(real OpenRouter smoke test, the e2e AI test) or move them to an explicit "deferred"
-section.
-
----
-
-## Low priority / cleanups
-
-### L1. Drag listeners cover the whole card including the Remove button
-
-`KanbanCard.tsx:29` spreads `{...listeners}` on the `<article>`, so the Remove button is
-inside the drag handle. The `PointerSensor` activation distance of 6px
-(`KanbanBoard.tsx:38`) means a plain click still fires the button, so this works in
-practice. Still, attaching listeners to a dedicated drag handle (or stopping propagation
-on the button) is more robust.
-
-Action: optional. If touched, add `onPointerDown={(e) => e.stopPropagation()}` to the
-Remove button, or introduce a drag handle.
-
-### L2. `cardsById` useMemo is a no-op
-
-`KanbanBoard.tsx:42`: `const cardsById = useMemo(() => board.cards, [board.cards])` just
-returns the same reference it depends on. The memo adds no value.
-
-Action: replace with `const cardsById = board.cards;` or use `board.cards` directly.
-
-### L3. `.env` parser is minimal
-
-`ai.py:29-34` parses `.env` line by line. It does not handle `export KEY=...`, inline
-comments, or multiline values. For this project's single-key `.env` it is fine and
-matches the "keep it simple" standard. Noting only so it is a conscious choice.
-
-Action: none, unless `.env` grows. Consider a comment that this is a deliberately
-minimal parser.
-
-### L4. Frontend `initialData` duplicates backend `DEFAULT_BOARD`
-
-`frontend/src/lib/kanban.ts:18` and `backend/app/database.py:11` define the same default
-board independently. The frontend value is now only used by tests
-(`KanbanBoard.test.tsx`), since the live board comes from the API. Drift between the two
-is harmless but possible.
-
-Action: optional. Keep `initialData` as a test fixture, or add a comment that it is
-test-only and the backend `DEFAULT_BOARD` is the source of truth.
-
-### L5. `board_changed` comparison relies on dict equality
-
-`ai_chat.py:33`: `updated_board != board` decides whether to persist. This is correct for
-JSON-derived dicts, but key ordering or whitespace differences from the model do not
-matter here because both sides are parsed dicts. Fine as-is; documenting the reasoning in
-a one-line comment would help future readers.
-
-Action: optional comment.
-
-### L6. Tracked test artifact
-
-`frontend/test-results/.last-run.json` is committed (visible in `git ls-files`) while
-`frontend/test-results` is otherwise ignored via `.dockerignore`. This looks like an
-accidental check-in.
-
-Action: remove the file from version control and ensure `frontend/.gitignore` covers
-`test-results/`.
-
-### L7. `AiTestRequest` / `/api/ai/test` is a diagnostic endpoint shipped to production
-
-`main.py:68` exposes `POST /api/ai/test`, which triggers a real OpenRouter call with an
-arbitrary prompt. It is useful for connectivity checks but is also an unauthenticated way
-to spend API credits.
-
-Action: acceptable for a local-only MVP. If the app is ever exposed beyond localhost,
-gate or remove this endpoint.
-
----
-
-## What is good
-
-- Clear separation of concerns: `ai.py` (transport), `ai_chat.py` (orchestration/parsing),
-  `database.py` (persistence), `main.py` (routing).
-- Robust AI response parsing with graceful fallbacks (fenced JSON, plain text, invalid
-  unicode, wrong schema) and matching unit tests in `test_ai_chat.py`.
-- Board validation (`database.py:160`) is thorough: shape, duplicate card placement, and
-  dangling references, and it is reused for AI updates.
-- Path-traversal guard on static serving (`main.py:104`).
-- API key stays server-side; never exposed to the frontend.
-- Tests use `PM_DB_PATH` with temp dirs rather than hardcoded paths, per the documented
-  convention.
-- Color scheme is centralized as CSS variables in `globals.css` and used consistently.
-- Multi-stage Dockerfile builds the frontend and copies only the static output into the
-  backend image.
-
----
-
-## Suggested action order
-
-1. H1 - implement card editing (requirement gap).
-2. H2 - add a volume mount so the DB persists, or document ephemerality.
-3. M1 - remove redundant per-request `initialize_database()` calls.
-4. M4 - reconcile the PLAN checklist with actual status.
-5. L6 - untrack `frontend/test-results/.last-run.json`.
-6. Remaining Medium/Low items as cleanup, opportunistically.
+Summary
+-------
+This repo is a Dockerized full-stack MVP with a Next.js frontend (exported static site) and a Python FastAPI backend (uvicorn). The core features are present and functional: a persisted Kanban board, a simple local login (MVP), and an AI chat that can propose structured board updates via OpenRouter.
+
+Overall quality is good for an MVP: code is straightforward, tests exist for the backend AI and database pieces, and the Dockerfile ties the two pieces together. However, there are several serious repository hygiene and security issues and a number of smaller correctness/maintainability problems that should be addressed before this project is used in any non-local environment or shared publicly.
+
+High Priority Issues (must fix immediately)
+-----------------------------------------
+1) Secret committed to repository (.env)
+   - Where: project root .env
+   - Problem: The file contains a live OPENROUTER_API_KEY (starts with sk-...). Committed secrets are an immediate security risk.
+   - Risk: Unauthorized use of the API key, unexpected charges, credential leak.
+   - Action (short):
+     1. Rotate the API key now (log into OpenRouter and revoke/replace the key).
+     2. Remove the committed .env from Git and replace it with an example file.
+        - git rm --cached .env
+        - echo "OPENROUTER_API_KEY=YOUR_KEY_HERE" > .env.example
+        - Add .env to .gitignore (already present but file is tracked). Commit the change.
+     3. Consider purging the key from history (BFG or git filter-repo) if the repo is public or shared. Example (careful; do with your org's process):
+        - Install git-filter-repo and run: git filter-repo --path .env --invert-paths
+        - Or use BFG to remove the literal value: bfg --delete-files .env
+     4. After history purge, force-push to protected branches only with consent and coordinate team.
+
+2) Large build artifacts and virtualenvs are committed
+   - Where: frontend/.next, frontend/out, backend/.venv, many compiled artifacts (.pyc, .map, build chunks)
+   - Problem: These increase repo size, leak environment-specific files, and should not be in source control.
+   - Action:
+     - Remove tracked artifacts and add proper ignores:
+       - git rm -r --cached frontend/.next frontend/out backend/.venv
+       - (Also remove committed __pycache__, .pyc, node_modules-like build output)
+       - Commit and push. Add entries to .gitignore where missing.
+     - Prefer building in CI or Docker instead of committing build outputs.
+
+3) Sensitive env file and virtualenv present in .git history and working tree
+   - See items above; treat as combined issue: remove tracked files, rotate secrets, purge history if needed.
+
+Medium Priority Issues (fix soon)
+--------------------------------
+4) No authentication / security boundary on API endpoints
+   - Where: backend app.main routes (GET /api/board, PUT /api/board, POST /api/ai/chat)
+   - Problem: APIs are unprotected (MVP design uses frontend-local session only). This is OK for local dev but dangerous if the server is exposed.
+   - Action: Document clearly in README and docs that server must not be exposed publicly. If you plan to expose it, add at least basic auth or token validation.
+
+5) Hardcoded MVP credentials in frontend
+   - Where: frontend/src/components/AuthenticatedKanban.tsx (USERNAME/PASSWORD = user/password)
+   - Problem: Storing credentials in client code is insecure (even for MVP). This is acceptable for local demo but must be documented and replaced before production.
+   - Action: Keep for local dev only; move credentials to a backend-configured check or environment variable if needed.
+
+6) Committed venv and compiled artifacts in backend/.venv and other noisy files
+   - Where: backend/.venv/ and many .pyc files
+   - Problem: Inflates repo and can leak platform-specific binaries.
+   - Action: Remove tracked venv and add clear dev setup instructions (uv / python -m venv .venv) and .venv in .gitignore.
+
+7) Tests and build artifacts checked in
+   - Where: frontend/out, many .next and .map files, test-results
+   - Problem: Built output and CI artifacts are committed. This makes diffs noisy and bloats repository.
+   - Action: Delete build artifacts from repo and ensure .gitignore prevents recurrence.
+
+Low Priority / Suggested Improvements
+------------------------------------
+8) Improve OpenRouter response handling and logging
+   - Where: backend/app/ai.py and backend/app/ai_chat.py
+   - Observations:
+     - call_openrouter_messages swallows httpx.HTTPError and raises a generic OpenRouterRequestError. Including response status/text (careful not to log secrets) would aid debugging.
+     - run_ai_chat expects json_response=True and then expects a JSON string back; parsing logic in parse_structured_ai_response is defensive and reasonable but could use more tests for edge cases.
+   - Action:
+     - Add structured logging around network calls and include response.status_code and truncated body on non-200 for diagnostics (make logs redacted for secrets).
+     - Add unit tests for parse_structured_ai_response covering: plain text reply, fenced code blocks, JSON with null board, malformed JSON, nested JSON, and JSON containing unexpected types.
+
+9) Validation: Prefer pydantic models for request/response bodies where appropriate
+   - Where: backend/app/main.py and board validation
+   - Action: Consider using pydantic BaseModel for board payloads and AI chat messages so incoming JSON is validated earlier with better error messages.
+
+10) Improve types and docstrings
+   - Action: Add docstrings for exported functions in backend/app/ai.py, ai_chat.py, and database.py. Add mypy/ruff/linting to CI.
+
+Code Quality Findings (by file)
+------------------------------
+- backend/app/ai.py
+  - get_openrouter_api_key reads process env then falls back to project .env file. This is convenient for local dev but you should not commit .env. (lines ~21-34)
+  - call_openrouter_messages constructs requests and raises OpenRouterRequestError on any httpx error (lines ~68-83). Consider surfacing error details for debugging but redact sensitive values.
+
+- backend/app/ai_chat.py
+  - run_ai_chat constructs the system prompt containing full current board JSON (line ~56). That can be large; consider truncation or summarization if boards become large.
+  - parse_structured_ai_response implements robust parsing for JSON embedded in text and fallback behavior (lines ~74-118). Add more tests for malformed responses.
+
+- backend/app/database.py
+  - validate_board enforces a strict shape for boards and checks for duplicate card ids (lines ~169-206). Good defensive validation.
+  - Database initialization and persistence are straightforward and use parameterized SQL (safe). For concurrency, sqlite is fine for single-process local MVP but document scale limits.
+
+- backend/app/main.py
+  - Static file handler uses FileResponse and ensures resolved path is within STATIC_DIR (lines ~101-109). Good path-checking.
+
+- frontend/
+  - AuthenticatedKanban handles the local session in localStorage and uses USERNAME/PASSWORD in client code (lines ~9-12 and ~60-67). This is acceptable for a local demo but must be clearly documented and removed before wider distribution.
+  - boardApi.ts wraps API calls and returns helpful errors. Consider surfacing server error detail consistently. (frontend/src/lib/boardApi.ts)
+
+Repository Hygiene / CI Recommendations
+------------------------------------
+1. Add or enforce pre-commit hooks (pre-commit) with these checks:
+   - trailing-whitespace, end-of-file-fixer
+   - ruff/black or eslint/Prettier for frontend
+   - detect-secrets or git-secrets scanning to prevent future commits of secrets
+
+2. Add a minimal CI pipeline that runs:
+   - Backend: uv run pytest (as repo already has tests)
+   - Frontend: npm ci && npm run test:unit
+   - Linting (ruff/eslint)
+
+3. Reduce repo size and noise by removing build artifacts and venvs (see immediate actions above).
+
+Testing / Missing Tests
+-----------------------
+- Add unit tests for parse_structured_ai_response that cover:
+  - Bare JSON response
+  - JSON embedded in markdown fences
+  - Plain text reply
+  - Malformed JSON falling back to text
+  - Board validation failure path
+
+- Add integration tests (backend) to verify that the /api/ai/chat endpoint returns 400/502 on malformed AI replies and that board updates are persisted correctly.
+
+Suggested Immediate Action Plan (order, commands)
+------------------------------------------------
+1) Rotate the OpenRouter API key now in OpenRouter dashboard.
+2) Remove sensitive file from git tracking and replace with .env.example:
+   - git rm --cached .env
+   - echo "OPENROUTER_API_KEY=REPLACE_ME" > .env.example
+   - git add .env.example
+   - git commit -m "ci: remove committed .env; add .env.example"
+
+3) Remove build and venv artifacts from the repository and commit the removal:
+   - git rm -r --cached frontend/.next frontend/out backend/.venv
+   - git rm -r --cached **/__pycache__ **/*.pyc
+   - git commit -m "chore: remove build artifacts and venv from repo"
+
+4) If the repository is public or the secret was used in public infrastructure, purge history (coordinate with team):
+   - Use git-filter-repo or BFG. Example (use carefully):
+     - pip install git-filter-repo
+     - git clone --mirror <repo-url> repo.git
+     - cd repo.git
+     - git filter-repo --path .env --invert-paths
+     - git push --force
+
+5) Add pre-commit and secret scanning to block future accidental commits. Example minimal steps:
+   - pip install pre-commit
+   - Create .pre-commit-config.yaml with hooks: detect-secrets, ruff, end-of-file-fixer
+   - pre-commit install
+
+6) Add docs: update README and docs/RUNNING.md to emphasize "DO NOT COMMIT .env or .venv" and include local dev steps.
+
+Owners / Who should do what
+---------------------------
+- Rotate API key: Owner with OpenRouter account (Ops / Project Owner) — immediate
+- Clean repo of secrets and build artifacts: Repo maintainer (Git expertise required) — immediate
+- Add pre-commit & CI: Dev lead or contributor familiar with CI — next sprint
+- Add tests and logging improvements: Backend owner / senior engineer — next sprint
+
+Appendix: Short checklist
+------------------------
+- [ ] Rotate OPENROUTER_API_KEY
+- [ ] Remove .env from git (git rm --cached .env) and add .env.example
+- [ ] Remove frontend/.next, frontend/out, backend/.venv, __pycache__, .pyc from repo
+- [ ] Add pre-commit (detect-secrets) and install hooks
+- [ ] Add CI jobs for tests and linting
+- [ ] Add unit tests for AI response parsing and board validation
+- [ ] Document security considerations in README and docs/
+
+End of report
