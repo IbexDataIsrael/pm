@@ -16,7 +16,9 @@ if [ -f ".env" ]; then
   ENV_ARGS="--env-file .env"
 fi
 
-docker run -d --name "$CONTAINER_NAME" -p 8000:8000 $ENV_ARGS "$IMAGE_NAME"
+mkdir -p backend/data
+
+docker run -d --name "$CONTAINER_NAME" -p 8000:8000 -v "$(pwd)/backend/data:/app/backend/data" $ENV_ARGS "$IMAGE_NAME"
 printf 'Project Management MVP is running at http://localhost:8000\n'
 if [ ! -f ".env" ]; then
   printf 'No .env file found. AI chat requires OPENROUTER_API_KEY to be set.\n'

@@ -3,11 +3,14 @@ $ErrorActionPreference = "Stop"
 $ImageName = "pm-mvp"
 $ContainerName = "pm-mvp"
 $EnvFile = Join-Path (Get-Location) ".env"
+$DataDir = Join-Path (Get-Location) "backend/data"
 $EnvArgs = @()
 
 if (Test-Path $EnvFile) {
     $EnvArgs = @("--env-file", $EnvFile)
 }
+
+New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 
 docker build -t $ImageName .
 if ($LASTEXITCODE -ne 0) {
@@ -22,7 +25,7 @@ if ($ExistingContainer) {
     }
 }
 
-docker run -d --name $ContainerName -p 8000:8000 @EnvArgs $ImageName
+docker run -d --name $ContainerName -p 8000:8000 -v "${DataDir}:/app/backend/data" @EnvArgs $ImageName
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

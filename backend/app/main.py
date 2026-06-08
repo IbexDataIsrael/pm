@@ -96,6 +96,8 @@ def chat_with_ai(payload: AiChatRequest) -> dict[str, Any]:
     return {"message": result.message, "boardChanged": result.board_changed}
 
 
+# Catch-all for the static frontend. All API routes must be declared above this,
+# otherwise they are shadowed by this handler.
 @app.get("/{static_path:path}", include_in_schema=False)
 def static_files(static_path: str = "") -> FileResponse:
     requested_path = static_path or "index.html"

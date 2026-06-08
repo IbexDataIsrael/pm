@@ -213,7 +213,7 @@ Checklist:
 - [x] Configure the backend to call OpenRouter using model `openai/gpt-oss-120b`.
 - [x] Add a minimal backend service function for AI calls.
 - [x] Add a simple API route or test-only path to verify AI connectivity.
-- [ ] Test with a simple prompt such as `2+2`.
+- [x] Test with a simple prompt such as `2+2`. (Verified: `test_ai.py` live connectivity test passes with the configured `OPENROUTER_API_KEY`; skipped automatically when no key is present.)
 - [x] Avoid exposing the API key to the frontend.
 
 Tests:
@@ -224,10 +224,10 @@ Tests:
 
 Success criteria:
 
-- [ ] Backend can make a successful OpenRouter call locally.
-- [ ] The simple connectivity prompt returns a sensible response.
+- [x] Backend can make a successful OpenRouter call locally. (Verified: live test in `test_ai.py` passes.)
+- [x] The simple connectivity prompt returns a sensible response. (Verified: live test asserts a non-empty reply.)
 - [x] API key remains server-side only.
-- [ ] Tests pass, with real network-dependent tests clearly separated if needed.
+- [x] Tests pass, with real network-dependent tests clearly separated (the live OpenRouter test in `test_ai.py` is skipped unless a key is configured).
 
 Implementation notes:
 
@@ -265,7 +265,7 @@ Success criteria:
 - [x] AI chat endpoint can return a text response without changing the board.
 - [x] AI chat endpoint can return a valid board update and persist it.
 - [x] Invalid AI board updates are rejected safely.
-- [ ] Tests pass.
+- [x] Tests pass.
 
 Implementation notes:
 
@@ -295,7 +295,7 @@ Tests:
 - [x] Add frontend tests for opening and using the chat sidebar.
 - [x] Add frontend tests for sending a message and rendering the assistant response.
 - [x] Add frontend tests for refreshing the board after an AI update.
-- [ ] Add end-to-end tests covering login, chat request, AI response, and board refresh with mocked AI where appropriate.
+- [ ] Add end-to-end tests covering login, chat request, AI response, and board refresh with mocked AI where appropriate. (Deferred: the chat-plus-board-refresh flow is covered by unit tests in `AuthenticatedKanban.test.tsx` with mocked AI; no Playwright AI e2e yet.)
 
 Success criteria:
 

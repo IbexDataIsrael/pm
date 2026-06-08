@@ -57,3 +57,11 @@ Backend tests can be run from `backend/` with:
 ```sh
 uv run pytest
 ```
+
+## Known Limitations
+
+- Board state persists in SQLite under `backend/data/`, which the start scripts mount
+  into the container so changes survive restarts and rebuilds.
+- Board saves are last-write-wins. The whole board is written on every change, so a
+  manual edit and an AI edit that overlap will overwrite each other. The MVP does not
+  include conflict handling, offline sync, or retries.

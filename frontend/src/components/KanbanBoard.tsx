@@ -84,6 +84,16 @@ export const KanbanBoard = ({
     });
   };
 
+  const handleEditCard = (cardId: string, title: string, details: string) => {
+    onBoardChange({
+      ...board,
+      cards: {
+        ...board.cards,
+        [cardId]: { ...board.cards[cardId], title, details },
+      },
+    });
+  };
+
   const handleDeleteCard = (columnId: string, cardId: string) => {
     onBoardChange({
       ...board,
@@ -175,6 +185,7 @@ export const KanbanBoard = ({
                   cards={column.cardIds.map((cardId) => board.cards[cardId])}
                   onRename={handleRenameColumn}
                   onAddCard={handleAddCard}
+                  onEditCard={handleEditCard}
                   onDeleteCard={handleDeleteCard}
                 />
               ))}

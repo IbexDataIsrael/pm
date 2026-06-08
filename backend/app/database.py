@@ -75,7 +75,14 @@ def connect() -> sqlite3.Connection:
     return connection
 
 
+_initialized_paths: set[str] = set()
+
+
 def initialize_database() -> None:
+    db_path = str(get_db_path())
+    if db_path in _initialized_paths:
+        return
+
     with connect() as connection:
         connection.executescript(
             """
@@ -101,6 +108,8 @@ def initialize_database() -> None:
         )
         user_id = ensure_user(connection, MVP_USERNAME)
         ensure_board(connection, user_id)
+
+    _initialized_paths.add(db_path)
 
 
 def ensure_user(connection: sqlite3.Connection, username: str) -> int:
