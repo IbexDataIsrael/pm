@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { sendAiChatMessage, type AiChatMessage } from "@/lib/boardApi";
+import { SendIcon } from "@/components/icons";
 
 type AiChatSidebarProps = {
   onBoardChanged: () => Promise<void>;
@@ -110,10 +111,11 @@ export const AiChatSidebar = ({ onBoardChanged }: AiChatSidebarProps) => {
           </p>
         ) : null}
         <button
-          className="mt-3 w-full rounded-full bg-[var(--secondary-purple)] px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--secondary-purple)] px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isSending || !draft.trim()}
           type="submit"
         >
+          <SendIcon className="h-4 w-4" />
           {isSending ? "Sending..." : "Send"}
         </button>
       </form>
